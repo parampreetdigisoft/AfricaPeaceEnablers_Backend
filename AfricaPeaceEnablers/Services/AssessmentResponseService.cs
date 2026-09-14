@@ -864,14 +864,14 @@ namespace AfricaPeaceEnablers.Services
                 var year = request.UpdatedAt.Year;
                 var cachedPillars = await _commonService.GetPillars();
                 int pillarCount = cachedPillars.Count;
-                // 1. Validate country access
+
                 var hasAccess = await _context.UserCountryMappings
                     .AnyAsync(x =>
-                        !x.IsDeleted &&
-                        (userRole == UserRole.Admin ||
-                         (x.UserID == userId && x.CountryID == request.CountryID)));
+                       !x.IsDeleted &&
+                       x.UserID == userId && 
+                       x.CountryID == request.CountryID);
 
-                if (!hasAccess)
+                if (!hasAccess && userRole != UserRole.Admin)
                 {
                     return ResultResponseDto<AiCountryPillarDashboardResponseDto>
                         .Failure(new[] { "Unauthorized or invalid country access" });
