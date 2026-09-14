@@ -59,12 +59,10 @@ namespace AfricaPeaceEnablers
                 {
                     builder.WithOrigins(
                         "http://localhost:4200",
-                        "http://peacemappers.ai",
-                        "https://peacemappers.ai",
-                        "http://portal.peacemappers.ai",
-                        "https://portal.peacemappers.ai",
-                        "https://app.peacemappers.ai",
-                        "https://app.peacemappers.ai"
+                        "http://africapeacemappers.net",
+                        "https://africapeacemappers.net",
+                        "http://admin.africapeacemappers.net",
+                        "https://admin.africapeacemappers.net"
                         )
                         .AllowAnyHeader()
                         .AllowAnyMethod()
