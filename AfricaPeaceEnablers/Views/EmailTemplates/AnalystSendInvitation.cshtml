@@ -1,0 +1,97 @@
+﻿@model AfricaPeaceEnablers.Views.EmailModels.EmailInvitationSendRequestDto
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#FDFDFD;font-family:'Poppins', Arial, sans-serif;">
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#FDFDFD;padding:30px 0;">
+        <tr>
+            <td align="center">
+
+                <!-- MAIN CONTAINER -->
+                <table width="720" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.08);">
+
+                    <!-- HEADER -->
+                    <tr>
+                        <td align="center" style="background:#1B3022;padding:40px 30px 25px;">
+
+                            <img src="@($"{Model.ApiUrl}/assets/images/apem.png")"
+                                 alt="APEM Logo"
+                                 style="height:75px;margin-bottom:20px;">
+
+                            <div style="font-size:26px;font-weight:600;color:#ffffff;text-align:center;">
+                                @Model.Title
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- CONTENT -->
+                    <tr>
+                        <td style="padding:35px 40px 25px;font-size:15px;color:#1B3022;line-height:1.7;">
+
+                            <p>@Model.Name,</p>
+
+                            <p>
+                                Your analyst account for the <strong>Africa Peace Enablers Matrix (APEM)</strong> platform is now active. 
+                                You have been added to the assessment workspace for the countries assigned to you and can begin coordinating the evaluation process.
+                            </p>
+
+                            <p>Please use the secure link below to create your password and access your dashboard:</p>
+
+                            <!-- BUTTON -->
+                            <div style="text-align:center;margin:20px 0 20px;">
+                                <a href="@Model.ResetPasswordUrl"
+                                   style="display:inline-block;padding:14px 22px;background:#BFA16D;
+                                      color:#ffffff;text-decoration:none;font-weight:600;
+                                      border-radius:8px;font-size:16px;">
+                                    Set Your Password
+                                </a>
+                            </div>
+
+                            <p style="margin:0 0 16px;"><strong>As an analyst, you will be able to:</strong></p>
+
+                            <div style="margin:20px 0;padding:18px;background:#F7F4EE;border-left:4px solid #BFA16D;border-radius:6px;color:#1B3022;font-size:14px;">
+                                • Complete and submit country assessment questionnaires<br>
+                                • Add or manage evaluators where neededs<br>
+                                • Add or manage evaluators where needed<br>
+                                • Review submissions and prepare materials for administrative review
+                            </div>
+
+                            <p style="margin:0 0 18px;">
+                                If you already have an active password, simply log in and continue your work.
+                            </p>
+
+                            <p style="margin:0 0 18px;">
+                                For assistance or system-related support, contact:
+                                <a href="mailto:@Model.Mail" style="color:#1B3022;font-weight:600;">
+                                    @Model.Mail
+                                </a>
+                            </p>
+                            <p style="margin:0 0 18px;">
+                                Thank you for joining the assessment team.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- FOOTER -->
+                    <tr>
+                        <td style="background:#F7F4EE;padding:25px 40px 35px;font-size:14px;color:#5A6B5E;border-top:1px solid #E4E4E4;">
+
+                            <p style="color:#1B3022;">Warm regards,</p>
+                            <p style="color:#1B3022;font-weight:600;">
+                                Africa Peace Enablers Matrix – Platform Administration
+                            </p>
+
+                        </td>
+                    </tr>
+
+                </table>
+
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>

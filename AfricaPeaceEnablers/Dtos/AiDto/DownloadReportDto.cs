@@ -1,0 +1,9 @@
+﻿namespace AfricaPeaceEnablers.Dtos.AiDto
+{
+    public class DownloadReportDto
+    {
+        public List<int>? CountryIDs { get; set; }
+        public IServices.DocumentFormat Format { get; set; } = IServices.DocumentFormat.Pdf;
+
+    }
+}

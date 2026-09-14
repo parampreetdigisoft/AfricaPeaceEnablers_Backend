@@ -1,0 +1,246 @@
+using AssessmentPlatform.Models;
+using Microsoft.EntityFrameworkCore;
+using AfricaPeaceEnablers.Common.Models;
+using AfricaPeaceEnablers.Dtos.CountryDto;
+using AfricaPeaceEnablers.Models;
+
+namespace AfricaPeaceEnablers.Data
+{
+    public class ApplicationDbContext : DbContext
+    {
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
+
+        public DbSet<User> Users { get; set; } = default!;
+        public DbSet<Pillar> Pillars { get; set; } = default!;
+        public DbSet<Question> Questions { get; set; } = default!;
+        public DbSet<QuestionOption> QuestionOptions { get; set; } = default!;
+        public DbSet<AssessmentResponse> AssessmentResponses { get; set; } = default!;
+        public DbSet<Assessment> Assessments { get; set; } = default!;
+        public DbSet<PillarAssessment> PillarAssessments { get; set; } = default!;
+        public DbSet<Country> Countries { get; set; } = default!;
+        public DbSet<UserCountryMapping> UserCountryMappings { get; set; } = default!;
+        public DbSet<AppLogs> AppLogs { get; set; } = default!;
+        public DbSet<PaymentRecord> PaymentRecords { get; set; } = default!;
+        public DbSet<PublicUserCountryMapping> PublicUserCountryMappings { get; set; } = default!;
+        public DbSet<AnalyticalLayer> AnalyticalLayers { get; set; } = default!;
+        public DbSet<FiveLevelInterpretation> FiveLevelInterpretations { get; set; } = default!;
+        public DbSet<AnalyticalLayerResult> AnalyticalLayerResults { get; set; } = default!;
+        public DbSet<CountryUserPillarMapping> CountryUserPillarMappings { get; set; } = default!;
+        public DbSet<AIDataSourceCitation> AIDataSourceCitations { get; set; } = default!;
+        public DbSet<AICountryScore> AICountryScores { get; set; } = default!;
+        public DbSet<AIEstimatedQuestionScore> AIEstimatedQuestionScores { get; set; } = default!;
+        public DbSet<AIPillarScore> AIPillarScores { get; set; } = default!;
+        public DbSet<AITrustLevel> AITrustLevels { get; set; } = default!;
+        public DbSet<AnalyticalLayerPillarMapping> AnalyticalLayerPillarMappings { get; set; } = default!;
+        public DbSet<EvaluationCountryProgressResultDto> CountryProgressResults { get; set; }
+        public DbSet<CountryRankingResultDto> CountryRankingResults { get; set; }
+        public DbSet<GetCountriesProgressAdminDto> GetCountriesProgressAdminDto { get; set; }
+        public DbSet<AIUserCountryMapping> AIUserCountryMappings { get; set; }
+        public DbSet<CountryPeer> CountryPeers { get; set; } = default!;
+        public DbSet<EvaluationCountryProgressHistoryResultDto> CountryProgressHistoryResults { get; set; }
+        public DbSet<CountryDocument> CountryDocuments { get; set; }
+        public DbSet<AiPillarStatsLast4MonthsView> AiPillarStatsLast4MonthsView { get; set; }
+        public DbSet<AssistantChatHistory> AssistantChatHistory { get; set; }
+        public DbSet<AIAssistantFAQ> AIAssistantFAQ { get; set; }
+        public DbSet<DocumentChunks> DocumentChunks { get; set; }
+        public DbSet<DocumentTOC> DocumentTOC { get; set; }
+        public DbSet<DashboardMode> DashboardModes { get; set; } = default!;
+        public DbSet<DashboardModeKPIMapping> DashboardModeKPIMappings { get; set; } = default!;
+        public DbSet<AIEditPermission> AIEditPermissions { get; set; } = default!;
+        public DbSet<AIEditSession> AIEditSessions { get; set; } = default!;
+        public DbSet<AIEditChangeLog> AIEditChangeLogs { get; set; } = default!;
+
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<User>().HasKey(ur => ur.UserID);
+
+            modelBuilder.Entity<Pillar>().HasKey(uc => uc.PillarID);
+            modelBuilder.Entity<Pillar>()
+                .HasMany(q => q.Questions)
+                .WithOne(qo => qo.Pillar)
+                .HasForeignKey(qo => qo.PillarID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+
+            modelBuilder.Entity<Question>().HasKey(uc => uc.QuestionID);
+            modelBuilder.Entity<QuestionOption>().HasKey(qo => qo.OptionID);
+
+            modelBuilder.Entity<Question>()
+                .HasMany(q => q.QuestionOptions)
+                .WithOne(qo => qo.Question)
+                .HasForeignKey(qo => qo.QuestionID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Assessment>().HasKey(uc => uc.AssessmentID);
+            modelBuilder.Entity<AssessmentResponse>().HasKey(uc => uc.ResponseID);
+            modelBuilder.Entity<PillarAssessment>().HasKey(uc => uc.PillarAssessmentID);
+
+            modelBuilder.Entity<Assessment>()
+                .HasMany(r => r.PillarAssessments)
+                .WithOne(a=>a.Assessment)
+                .HasForeignKey(r => r.AssessmentID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PillarAssessment>()
+            .HasMany(r => r.Responses)
+            .WithOne(a => a.PillarAssessment)
+            .HasForeignKey(r => r.PillarAssessmentID)
+            .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Country>().HasKey(uc => uc.CountryID);
+            modelBuilder.Entity<PaymentRecord>(entity =>
+            {
+                entity.HasKey(p => p.PaymentRecordID);
+                entity.Property(e => e.Tier)
+                      .HasConversion<byte>();
+
+                entity.Property(e => e.PaymentStatus)
+                      .HasConversion<byte>();
+            });
+
+            modelBuilder.Entity<UserCountryMapping>().HasKey(uc => uc.UserCountryMappingID);
+            modelBuilder.Entity<PublicUserCountryMapping>().HasKey(uc => uc.PublicUserCountryMappingID);
+
+            modelBuilder.Entity<AnalyticalLayer>(entity =>
+            {
+                entity.HasKey(al => al.LayerID);
+
+                entity.HasMany(al=>al.AnalyticalLayerResults)
+                .WithOne(x=>x.AnalyticalLayer)
+                .HasForeignKey(x=>x.LayerID);
+
+                entity.HasMany(al => al.FiveLevelInterpretations)
+               .WithOne(x => x.AnalyticalLayer)
+               .HasForeignKey(x => x.LayerID);
+            });
+            modelBuilder.Entity<AnalyticalLayerResult>(entity =>
+            {
+                entity.HasKey(al => al.LayerResultID);
+            });
+            modelBuilder.Entity<FiveLevelInterpretation>(entity =>
+            {
+                entity.HasKey(al => al.InterpretationID);
+            });
+            modelBuilder.Entity<CountryUserPillarMapping>().HasKey(ur => ur.CountryUserPillarMappingID);
+
+            modelBuilder.Entity<AIDataSourceCitation>().HasKey(ur => ur.CitationID);
+            modelBuilder.Entity<AICountryScore>(entity =>
+            {
+                entity.HasKey(e => e.CountryScoreID);
+            });
+            modelBuilder.Entity<AIEstimatedQuestionScore>().HasKey(ur => ur.QuestionScoreID);
+            modelBuilder.Entity<AIPillarScore>().HasKey(ur => ur.PillarScoreID);
+            modelBuilder.Entity<AITrustLevel>().HasKey(ur => ur.TrustID);
+            modelBuilder.Entity<AnalyticalLayerPillarMapping>().HasKey(ur => ur.AnalyticalLayerPillarMappingID);
+            modelBuilder.Entity<AIUserCountryMapping>().HasKey(ur => ur.AIUserCountryMappingID);
+            modelBuilder.Entity<EvaluationCountryProgressResultDto>().HasNoKey().ToView(null); 
+            modelBuilder.Entity<CountryRankingResultDto>().HasNoKey().ToView(null); 
+            modelBuilder.Entity<GetCountriesProgressAdminDto>().HasNoKey().ToView(null);
+            modelBuilder.Entity<EvaluationCountryProgressHistoryResultDto>().HasNoKey().ToView(null);
+            modelBuilder.Entity<CountryPeer>(entity =>
+            {
+                entity.HasKey(e => e.CountryPeerID);
+                entity.ToTable("CountryPeer");
+            });
+
+            modelBuilder.Entity<CountryDocument>(entity =>
+            {
+                entity.HasKey(e => e.CountryDocumentID);
+                entity.ToTable("CountryDocuments");
+            });
+
+            modelBuilder.Entity<AiPillarStatsLast4MonthsView>()
+            .HasNoKey()
+            .ToView("vw_AiGetPillarStats_Last4Months");
+
+            modelBuilder.Entity<AssistantChatHistory>(entity =>
+            {
+                entity.HasKey(e => e.ChatID);
+                entity.ToTable("AssistantChatHistory");
+            });
+
+            modelBuilder.Entity<AIAssistantFAQ>(entity =>
+            {
+                entity.HasKey(e => e.FAQID);
+                entity.ToTable("AIAssistantFAQ");
+            });
+
+            modelBuilder.Entity<DocumentTOC>(entity =>
+            {
+                entity.HasKey(e => e.TOCID);
+                entity.ToTable("DocumentTOC");
+            });
+            modelBuilder.Entity<DocumentChunks>(entity =>
+            {
+                entity.HasKey(e => e.ChunkID);
+                entity.ToTable("DocumentChunks");
+            });
+
+            modelBuilder.Entity<DashboardMode>(entity =>
+            {
+                entity.HasKey(e => e.DashboardModeID);
+                entity.ToTable("DashboardModes");
+
+                entity.Property(e => e.ModeName)
+                    .HasMaxLength(100)
+                    .IsRequired();
+
+                entity.Property(e => e.Description)
+                    .HasMaxLength(500);
+
+                entity.HasMany(e => e.DashboardModeKPIMappings)
+                    .WithOne(m => m.DashboardMode)
+                    .HasForeignKey(m => m.DashboardModeID)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<DashboardModeKPIMapping>(entity =>
+            {
+                entity.HasKey(e => e.DashboardModeKPIMappingID);
+                entity.ToTable("DashboardModeKPIMappings");
+
+                entity.Property(e => e.Description)
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.PriorityLevel)
+                    .HasDefaultValue(1);
+
+                entity.Property(e => e.IsActive)
+                    .HasDefaultValue(true);
+            });
+
+            modelBuilder.Entity<AIEditPermission>(entity =>
+            {
+                entity.HasKey(e => e.PermissionID);
+                entity.ToTable("AIEditPermissions");
+                entity.Property(e => e.Status).HasConversion<byte>();
+            });
+
+            modelBuilder.Entity<AIEditSession>(entity =>
+            {
+                entity.HasKey(e => e.SessionID);
+                entity.ToTable("AIEditSessions");
+                entity.Property(e => e.Status).HasConversion<byte>();
+                entity.HasOne(e => e.Permission)
+                    .WithMany()
+                    .HasForeignKey(e => e.PermissionID)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<AIEditChangeLog>(entity =>
+            {
+                entity.HasKey(e => e.ChangeLogID);
+                entity.ToTable("AIEditChangeLogs");
+                entity.Property(e => e.EntityType).HasConversion<byte>();
+                entity.HasOne(e => e.Session)
+                    .WithMany(s => s.ChangeLogs)
+                    .HasForeignKey(e => e.SessionID)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            base.OnModelCreating(modelBuilder);
+        }
+
+    }
+}

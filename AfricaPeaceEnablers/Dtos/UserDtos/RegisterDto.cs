@@ -1,0 +1,33 @@
+﻿using AfricaPeaceEnablers.Enums;
+using AfricaPeaceEnablers.Models;
+
+namespace AfricaPeaceEnablers.Dtos.UserDtos
+{
+    public class RegisterDto
+    {
+        public string FullName { get; set; }
+        public string Email { get; set; }
+        public string Phone { get; set; }
+        public string Password { get; set; } = "sdfjru32brjfew";
+        public UserRole Role { get; set; }
+        public TieredAccessPlan? Tier { get; set; }
+        public List<int>? Pillars { get; set; }
+    }
+    public class InviteUserDto : RegisterDto
+    {
+        public int InvitedUserID { get; set; }
+        public List<int> CountryID { get; set; } = new();
+        public bool IsAllCountries { get; set; }
+        public List<int>? Pillars { get; set; }
+
+    }
+
+    public class InviteBulkUserDto
+    {
+        public List<InviteUserDto> users { get; set; }
+    }
+    public class UpdateInviteUserDto : InviteUserDto
+    {
+        public int UserID { get; set; }
+    }
+}
