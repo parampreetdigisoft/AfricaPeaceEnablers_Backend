@@ -437,6 +437,23 @@ namespace AfricaPeaceEnablers.Services
             }
         }
 
+        private static readonly object EmergingTrendsDiskLock = new();
+
+        private static readonly JsonSerializerOptions EmergingTrendsJsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true
+        };
+
+        private static readonly HashSet<string> AfricanIso2 = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "DZ","AO","BJ","BW","BF","BI","CV","CM","CF","TD","KM","CG","CD","CI","DJ","EG",
+            "GQ","ER","SZ","ET","GA","GM","GH","GN","GW","KE","LS","LR","LY","MG","MW","ML",
+            "MR","MU","MA","MZ","NA","NE","NG","RW","ST","SN","SC","SL","SO","ZA","SS","SD",
+            "TZ","TG","TN","UG","EH","ZM","ZW"
+        };
+
         private static string EmergingTrendsCacheKey(int countryCount) =>
             $"EmergingTrendsAndIssues_{countryCount}";
 
@@ -444,10 +461,62 @@ namespace AfricaPeaceEnablers.Services
             $"EmergingTrendsAndIssues_Stale_{countryCount}";
 
         private TimeSpan EmergingTrendsCacheDuration =>
-            TimeSpan.FromHours(_configuration.GetValue("EmergingTrendsCache:CacheExpirationHours", 12));
+            TimeSpan.FromHours(_configuration.GetValue("EmergingTrendsCache:CacheExpirationHours", 48));
 
         private TimeSpan EmergingTrendsStaleCacheDuration =>
-            TimeSpan.FromHours(_configuration.GetValue("EmergingTrendsCache:StaleCacheExpirationHours", 168));
+            TimeSpan.FromHours(_configuration.GetValue("EmergingTrendsCache:StaleCacheExpirationHours", 48));
+
+        private int ConfiguredEmergingTrendsCountryCount(int fallback = 8) =>
+            _configuration.GetValue("EmergingTrendsCache:CountryCount", fallback);
+
+        private string EmergingTrendsDiskPath(int countryCount)
+        {
+            var root = !string.IsNullOrWhiteSpace(_env.WebRootPath)
+                ? _env.WebRootPath
+                : Path.Combine(_env.ContentRootPath, "wwwroot");
+
+            return Path.Combine(root, "data", $"emerging_trends_cache_{countryCount}.json");
+        }
+
+        private static bool HasUsableEmergingTrends(EmergingTrendsResult? data) =>
+            data?.Countries != null && data.Countries.Any(IsUsableAfricanCountryCard);
+
+        private static bool IsUsableAfricanCountryCard(EmergingTrendCountryCard? card)
+        {
+            if (card == null
+                || string.IsNullOrWhiteSpace(card.Country)
+                || string.IsNullOrWhiteSpace(card.Title)
+                || string.IsNullOrWhiteSpace(card.SourceUrl))
+            {
+                return false;
+            }
+
+            var code = (card.CountryCode ?? "").Trim();
+            if (code.Length == 2 && AfricanIso2.Contains(code))
+            {
+                return true;
+            }
+
+            var region = card.Region ?? "";
+            return region.Contains("africa", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static EmergingTrendsResult? FilterToUsableAfricanFeed(EmergingTrendsResult? data)
+        {
+            if (data?.Countries == null)
+            {
+                return null;
+            }
+
+            var countries = data.Countries.Where(IsUsableAfricanCountryCard).ToList();
+            if (countries.Count == 0)
+            {
+                return null;
+            }
+
+            data.Countries = countries;
+            return data;
+        }
 
         private bool TryGetEmergingTrendsFromCache(
             int countryCount,
@@ -457,7 +526,7 @@ namespace AfricaPeaceEnablers.Services
             result = null;
 
             if (_cache.TryGetValue(EmergingTrendsCacheKey(countryCount), out EmergingTrendsResult? cached)
-                && cached?.Countries?.Count > 0)
+                && HasUsableEmergingTrends(cached))
             {
                 result = cached;
                 return true;
@@ -465,19 +534,90 @@ namespace AfricaPeaceEnablers.Services
 
             if (allowStale
                 && _cache.TryGetValue(EmergingTrendsStaleCacheKey(countryCount), out EmergingTrendsResult? stale)
-                && stale?.Countries?.Count > 0)
+                && HasUsableEmergingTrends(stale))
             {
                 result = stale;
+                return true;
+            }
+
+            if (allowStale && TryReadEmergingTrendsFromDisk(countryCount, out var disk) && disk != null)
+            {
+                result = disk;
+                SetEmergingTrendsCache(countryCount, disk, updateStale: true, persistToDisk: false);
                 return true;
             }
 
             return false;
         }
 
+        private bool TryReadEmergingTrendsFromDisk(int countryCount, out EmergingTrendsResult? result)
+        {
+            result = null;
+            var path = EmergingTrendsDiskPath(countryCount);
+
+            try
+            {
+                if (!File.Exists(path))
+                {
+                    return false;
+                }
+
+                string json;
+                lock (EmergingTrendsDiskLock)
+                {
+                    json = File.ReadAllText(path);
+                }
+
+                var snapshot = JsonSerializer.Deserialize<EmergingTrendsDiskSnapshot>(json, EmergingTrendsJsonOptions);
+                var data = FilterToUsableAfricanFeed(snapshot?.Data);
+                if (data == null)
+                {
+                    return false;
+                }
+
+                result = data;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void WriteEmergingTrendsToDisk(int countryCount, EmergingTrendsResult data)
+        {
+            try
+            {
+                var path = EmergingTrendsDiskPath(countryCount);
+                var directory = Path.GetDirectoryName(path);
+                if (!string.IsNullOrWhiteSpace(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                var snapshot = new EmergingTrendsDiskSnapshot
+                {
+                    SavedAtUtc = DateTime.UtcNow,
+                    Data = data
+                };
+
+                var json = JsonSerializer.Serialize(snapshot, EmergingTrendsJsonOptions);
+                lock (EmergingTrendsDiskLock)
+                {
+                    File.WriteAllText(path, json);
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _appLogger.LogAsync("Failed to persist emerging trends cache to disk.", ex);
+            }
+        }
+
         private void SetEmergingTrendsCache(
             int countryCount,
             EmergingTrendsResult data,
-            bool updateStale = true)
+            bool updateStale = true,
+            bool persistToDisk = true)
         {
             var cacheOptions = new MemoryCacheEntryOptions
             {
@@ -499,6 +639,11 @@ namespace AfricaPeaceEnablers.Services
                     }
                 );
             }
+
+            if (persistToDisk)
+            {
+                WriteEmergingTrendsToDisk(countryCount, data);
+            }
         }
 
         private bool PreserveEmergingTrendsCacheOnRefreshFailure(int countryCount)
@@ -509,7 +654,20 @@ namespace AfricaPeaceEnablers.Services
                 return false;
             }
 
-            SetEmergingTrendsCache(countryCount, stale, updateStale: false);
+            SetEmergingTrendsCache(countryCount, stale, updateStale: false, persistToDisk: false);
+            return true;
+        }
+
+        public bool HydrateEmergingTrendsCacheFromDisk(int countryCount)
+        {
+            countryCount = ConfiguredEmergingTrendsCountryCount(countryCount);
+
+            if (!TryReadEmergingTrendsFromDisk(countryCount, out var disk) || disk == null)
+            {
+                return false;
+            }
+
+            SetEmergingTrendsCache(countryCount, disk, updateStale: true, persistToDisk: false);
             return true;
         }
 
@@ -517,10 +675,10 @@ namespace AfricaPeaceEnablers.Services
         {
             try
             {
-                countryCount = _configuration.GetValue("EmergingTrendsCache:CountryCount", 8);
+                countryCount = ConfiguredEmergingTrendsCountryCount(8);
 
                 if (TryGetEmergingTrendsFromCache(countryCount, out var cachedResult, allowStale: true)
-                    && cachedResult != null)
+                    && HasUsableEmergingTrends(cachedResult))
                 {
                     var fromPrimary = _cache.TryGetValue(
                         EmergingTrendsCacheKey(countryCount),
@@ -551,6 +709,19 @@ namespace AfricaPeaceEnablers.Services
                     ex
                 );
 
+                countryCount = ConfiguredEmergingTrendsCountryCount(8);
+                if (TryGetEmergingTrendsFromCache(countryCount, out var fallback, allowStale: true)
+                    && HasUsableEmergingTrends(fallback))
+                {
+                    return ResultResponseDto<EmergingTrendsResult>.Success(
+                        fallback,
+                        new List<string>
+                        {
+                            "Emerging trends and issues fetched successfully from last known data."
+                        }
+                    );
+                }
+
                 return ResultResponseDto<EmergingTrendsResult>.Failure(
                     new[]
                     {
@@ -566,11 +737,11 @@ namespace AfricaPeaceEnablers.Services
         {
             try
             {
-                countryCount = _configuration.GetValue("EmergingTrendsCache:CountryCount", countryCount);
+                countryCount = ConfiguredEmergingTrendsCountryCount(countryCount);
 
                 var enriched = await FetchAndEnrichEmergingTrendsAsync(countryCount, cancellationToken);
 
-                if (enriched?.Countries?.Count > 0)
+                if (HasUsableEmergingTrends(enriched) && enriched != null)
                 {
                     SetEmergingTrendsCache(countryCount, enriched);
                     return true;
@@ -600,17 +771,18 @@ namespace AfricaPeaceEnablers.Services
                 return null;
             }
 
-            if (result.Result.Countries == null || result.Result.Countries.Count == 0)
+            var filtered = FilterToUsableAfricanFeed(result.Result);
+            if (filtered == null)
             {
                 return null;
             }
 
-            var countryCodes = result.Result.Countries
+            var countryCodes = filtered.Countries
                 .Select(c => c.CountryCode?.Trim().ToLower())
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .ToList();
 
-            var countries = result.Result.Countries
+            var countries = filtered.Countries
                 .Select(c => c.Country?.Trim().ToLower())
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .ToList();
@@ -635,7 +807,7 @@ namespace AfricaPeaceEnablers.Services
                 })
                 .ToListAsync(cancellationToken);
 
-            foreach (var trendCountry in result.Result.Countries)
+            foreach (var trendCountry in filtered.Countries)
             {
                 var countryCode = trendCountry.CountryCode?.Trim().ToLower();
                 var countryName = trendCountry.Country?.Trim().ToLower();
@@ -647,7 +819,7 @@ namespace AfricaPeaceEnablers.Services
                 trendCountry.ImagePath = matchedCountry?.Image ?? "";
             }
 
-            return result.Result;
+            return FilterToUsableAfricanFeed(filtered);
         }
 
         public async Task<ResultResponseDto<PillarLiveSignalsResult>> GetPillarLiveSignals()
