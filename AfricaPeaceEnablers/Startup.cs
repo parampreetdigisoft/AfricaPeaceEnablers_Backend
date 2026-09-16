@@ -182,7 +182,7 @@ namespace AfricaPeaceEnablers
             // Enable middleware to serve Swagger UI (HTML, JS, CSS, etc.)
             app.UseSwaggerUI(c =>
             {
-                c.SwaggerEndpoint("/swagger/v1/swagger.json", "Peace Enablers Api");
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "Africa Peace Enablers Api");
                 c.RoutePrefix = string.Empty; // Swagger UI at root URL (e.g. https://localhost:5001/)
             });           
 
